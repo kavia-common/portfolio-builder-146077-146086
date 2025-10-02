@@ -7,62 +7,46 @@ import { extractResumeDataFromPdf } from './utils/pdfParser';
 function App() {
   /**
    * PUBLIC_INTERFACE
-   * Main portfolio app with:
-   * - Upload area (top)
-   * - Generated portfolio (below) using Ocean Professional theme
-   * - Parses the provided PDF on first load as initial data
+   * Single-user portfolio site for Akshat Mishra.
+   * - No uploads, no edits
+   * - Always parses from the bundled resume PDF in /attachments
+   * - Ocean Professional theme styling
    */
   const [theme, setTheme] = useState('light');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [resume, setResume] = useState(null);
 
-  // Apply theme to document element
+  // Apply theme attribute for potential CSS variables use
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // Load the provided PDF as initial data source
+  // Load the provided resume PDF as the ONLY data source
   useEffect(() => {
-    const loadInitial = async () => {
+    const loadResume = async () => {
       try {
         setLoading(true);
         setError('');
-        // Use absolute path provided by environment (attachments mounted at project root)
-        const initialUrl = '/attachments/20251002_075210_akshat_Mishra_resume_VB4P_1.pdf';
-        const data = await extractResumeDataFromPdf(initialUrl);
+        const pdfUrl = '/attachments/20251002_075656_akshat_Mishra_resume_VB4P_1.pdf';
+        const data = await extractResumeDataFromPdf(pdfUrl);
+
+        // Ensure the name is set to Akshat Mishra if parse is ambiguous
+        if (!data?.name || data.name.toLowerCase().includes('resume')) {
+          data.name = 'Akshat Mishra';
+        }
         setResume(data);
       } catch (e) {
         console.error(e);
-        setError('Unable to parse initial resume. You can upload a PDF to proceed.');
+        setError('Unable to parse the portfolio data. Please refresh the page.');
       } finally {
         setLoading(false);
       }
     };
-    loadInitial();
+    loadResume();
   }, []);
 
-  // PUBLIC_INTERFACE
-  const toggleTheme = () => {
-    setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
-  };
-
-  // PUBLIC_INTERFACE
-  const onFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setLoading(true);
-    setError('');
-    try {
-      const data = await extractResumeDataFromPdf(file);
-      setResume(data);
-    } catch (err) {
-      console.error(err);
-      setError('Failed to parse PDF. Please try another file.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const toggleTheme = () => setTheme((t) => (t === 'light' ? 'dark' : 'light'));
 
   return (
     <div className="App" style={styles.app}>
@@ -70,25 +54,17 @@ function App() {
         <div style={styles.brand}>
           <div style={styles.brandMark}>AM</div>
           <div style={styles.brandText}>
-            <div style={styles.brandTitle}>Ocean Professional</div>
-            <div style={styles.brandSub}>Portfolio Generator</div>
+            <div style={styles.brandTitle}>Akshat Mishra</div>
+            <div style={styles.brandSub}>Ocean Professional</div>
           </div>
         </div>
 
         <div style={styles.actions}>
-          <label style={styles.uploadLabel}>
-            <input
-              type="file"
-              accept="application/pdf"
-              onChange={onFileChange}
-              style={{ display: 'none' }}
-            />
-            Upload PDF
-          </label>
           <button
             onClick={toggleTheme}
             aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
             style={styles.toggleBtn}
+            title="Toggle light/dark mode"
           >
             {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
           </button>
@@ -96,18 +72,15 @@ function App() {
       </header>
 
       <main style={styles.main}>
-        <section style={styles.uploadInfo}>
-          <h1 style={styles.h1}>Build your portfolio in seconds</h1>
-          <p style={styles.lead}>
-            Upload a resume PDF and we will extract your information to generate a clean, modern portfolio.
-          </p>
-          <p style={styles.hint}>Using theme: Ocean Professional (Blue & Amber)</p>
+        <section style={styles.heroWrap}>
+          <h1 style={styles.h1}>Portfolio</h1>
+          <p style={styles.hint}>Automatically parsed from Akshat’s resume PDF.</p>
         </section>
 
-        {loading && <div style={styles.card}>Parsing PDF… Please wait.</div>}
+        {loading && <div style={styles.card}>Loading portfolio…</div>}
         {error && <div style={{ ...styles.card, ...styles.errorCard }}>{error}</div>}
 
-        {resume && (
+        {resume && !loading && !error && (
           <section style={styles.portfolio}>
             <Hero data={resume} />
             <Content data={resume} />
@@ -116,14 +89,14 @@ function App() {
       </main>
 
       <footer style={styles.footer}>
-        <span>© {new Date().getFullYear()} Generated with Ocean Professional</span>
+        <span>© {new Date().getFullYear()} Akshat Mishra — Ocean Professional</span>
       </footer>
     </div>
   );
 }
 
 function Hero({ data }) {
-  const name = data?.name || 'Your Name';
+  const name = data?.name || 'Akshat Mishra';
   const title = data?.title || 'Software Engineer';
   const email = data?.contact?.email;
   const phone = data?.contact?.phone;
@@ -135,7 +108,7 @@ function Hero({ data }) {
     <div style={styles.hero}>
       <div style={styles.heroLeft}>
         <h2 style={styles.name}>{name}</h2>
-        <p style={styles.title}>{title}</p>
+        {title && <p style={styles.title}>{title}</p>}
         {summary && <p style={styles.summary}>{summary}</p>}
         <div style={styles.tags}>
           {location && <span style={styles.tag}>{location}</span>}
@@ -213,7 +186,7 @@ function Content({ data }) {
           {projects.length ? projects.map((p, i) => (
             <div key={i} style={styles.projectItem}>
               <div style={styles.projectHeader}>
-                <strong>{p.name || 'Untitled Project'}</strong>
+                <strong>{p.name || 'Project'}</strong>
                 {p.link && (
                   <a href={normalizeLink(p.link)} target="_blank" rel="noreferrer" style={styles.projectLink}>
                     View
@@ -291,16 +264,6 @@ const styles = {
   brandTitle: { fontWeight: 700, fontSize: 14, color: themeColors.text },
   brandSub: { fontSize: 12, color: '#6b7280' },
   actions: { display: 'flex', alignItems: 'center', gap: 10 },
-  uploadLabel: {
-    background: themeColors.primary,
-    color: 'white',
-    border: 0,
-    padding: '8px 14px',
-    borderRadius: 8,
-    cursor: 'pointer',
-    fontWeight: 600,
-    boxShadow: '0 4px 12px rgba(37,99,235,0.25)',
-  },
   toggleBtn: {
     background: 'white',
     color: themeColors.text,
@@ -315,7 +278,7 @@ const styles = {
     margin: '0 auto',
     padding: '24px 16px 48px',
   },
-  uploadInfo: {
+  heroWrap: {
     background: 'linear-gradient(180deg, rgba(37,99,235,0.08), rgba(245,158,11,0.06))',
     border: '1px solid #e5e7eb',
     borderRadius: 16,
@@ -323,7 +286,6 @@ const styles = {
     marginBottom: 20,
   },
   h1: { margin: 0, fontSize: 28 },
-  lead: { margin: '8px 0 0', color: '#374151' },
   hint: { marginTop: 6, color: '#6b7280', fontSize: 12 },
   portfolio: { display: 'flex', flexDirection: 'column', gap: 16 },
   hero: {
@@ -431,7 +393,6 @@ const styles = {
     padding: '16px',
     color: '#6b7280',
   },
-  // Responsive grid for larger screens
   '@media(min-width: 900px)': {},
 };
 
